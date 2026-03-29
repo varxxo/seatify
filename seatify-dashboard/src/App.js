@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import "./App.css";
 
-// ⚠️ Change this later to your deployed backend (Render)
 const API_BASE = "http://127.0.0.1:8000";
 
 function App() {
@@ -9,25 +8,6 @@ function App() {
   const [selectedFloor, setSelectedFloor] = useState("1");
   const [config, setConfig] = useState({ mode: "image", source: "", floor_id: 1 });
   const [analytics, setAnalytics] = useState(null);
-
-  // ✅ FIXED: Login state
-  const [isLoggedIn] = useState(true);
-
-  // ✅ FIXED: Reserve function
-  const handleReserve = (seatId) => {
-    console.log("Reserving seat:", seatId);
-
-    fetch(`${API_BASE}/reserve`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ seat_id: seatId, floor_id: selectedFloor }),
-    })
-      .then((res) => res.json())
-      .then(() => fetchGlobalData())
-      .catch(console.error);
-  };
 
   const FLOOR_INFO = {
     "1": { subject: "Periodicals & Children Section", sockets: 24, totalSockets: 30 },
@@ -91,8 +71,7 @@ function App() {
       .catch(console.error);
   };
 
-  const currentData =
-    floorData[selectedFloor] || { available: 0, occupied: 0, reserved: 0, seats: {}, boxes: [] };
+  const currentData = floorData[selectedFloor] || { available: 0, occupied: 0, reserved: 0, seats: {}, boxes: [] };
 
   const seatColor = (status) => {
     if (status === "OCCUPIED") return "rgba(239, 68, 68, 0.7)";
@@ -108,31 +87,74 @@ function App() {
       </header>
 
       <div className="main-layout">
-        <aside>
-          {Object.keys(floorData).map((fid) => (
-            <div key={fid} onClick={() => setSelectedFloor(fid)}>
-              Floor {fid}
-            </div>
-          ))}
+        <aside className="sidebar">
+          <h3>Floors</h3>
+          <div className="floor-list">
+            {Object.keys(floorData).map((fid) => (
+              <div
+                key={fid}
+                className={`floor-item ${selectedFloor === fid ? 'active' : ''}`}
+                onClick={() => setSelectedFloor(fid)}
+              >
+                Floor {fid}
+              </div>
+            ))}
+          </div>
         </aside>
 
-        <main>
-          <h2>Floor {selectedFloor}</h2>
-
-          <div>
-            Available: {currentData.available} | Occupied: {currentData.occupied}
+        <main className="content">
+          <div className="floor-header">
+            <h2>Floor {selectedFloor} Details</h2>
+            <div className="view-controls">
+              <button className={`btn-sm ${config.mode === 'image' ? 'active' : ''}`} onClick={() => updateConfig({ mode: 'image', source: 'tools/camera_reference.jpg' })}>Image Mode</button>
+              <button className={`btn-sm ${config.mode === 'video' ? 'active' : ''}`} onClick={() => updateConfig({ mode: 'video', source: 'tools/library_video.mp4' })}>Live Video</button>
+            </div>
           </div>
 
-          {/* Seat Boxes */}
-          {(currentData.boxes || []).map((box, i) => (
-            <div key={i}>
-              Seat {box.id} - {box.status}
-
-              {isLoggedIn && box.status === "EMPTY" && (
-                <button onClick={() => handleReserve(box.id)}>Reserve</button>
-              )}
+          <div className="cards">
+            <div className="card green">
+              <div className="card-label">Available</div>
+              <div className="card-value">{currentData.available}</div>
             </div>
-          ))}
+            <div className="card red">
+              <div className="card-label">Occupied</div>
+              <div className="card-value">{currentData.occupied}</div>
+            </div>
+          </div>
+
+          <div className="preview-container">
+            <h3>Monitoring Feed</h3>
+            <div style={{ position: 'relative' }}>
+              {config.mode === 'video' ? (
+                <video src={"/" + config.source} autoPlay loop muted style={{ width: '100%', borderRadius: '12px' }} />
+              ) : (
+                <img src={"/" + config.source} alt="Feed" style={{ width: '100%', borderRadius: '12px' }} />
+              )}
+
+              {/* Seat Boxes */}
+              {(currentData.boxes || []).map((box, i) => (
+                <div key={i} style={{
+                  position: 'absolute',
+                  left: `${box.x}%`,
+                  top: `${box.y}%`,
+                  width: `${box.width}%`,
+                  height: `${box.height}%`,
+                  border: `2px solid ${seatColor(box.status)}`,
+                  backgroundColor: seatColor(box.status).replace('0.5)', '0.2)'),
+                  pointerEvents: 'none',
+                  borderRadius: '3px'
+                }}>
+                  <span style={{
+                    position: 'absolute', top: '-18px', left: '-2px',
+                    background: seatColor(box.status).replace('0.5)', '1)'),
+                    color: '#fff', fontSize: '10px', padding: '1px 4px', borderRadius: '3px'
+                  }}>
+                    {box.id}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
         </main>
       </div>
     </div>
