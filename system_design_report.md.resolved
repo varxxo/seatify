@@ -1,0 +1,158 @@
+# Ultra-Detailed System Design Report: Smart Library Seat Detection
+
+## 1. Executive Vision
+The **Smart Library Seat Detection System** is an AI-driven ecosystem designed to transform library spatial management. By combining edge-computing computer vision with a centralized state-management architecture, it provides real-time, actionable insights into library utilization while maintaining student privacy and system scalability.
+
+---
+
+## 2. User Journey & Experience Flow
+Understanding the interaction between the physical library space and the digital representation is critical.
+
+```mermaid
+journey
+    title Student Experience Journey
+    section Physical Action
+      Student enters library: 5: Me
+      Student looks for seat: 3: Me
+      Student finds seat with bag: 4: Me
+      Student sits down: 5: Me
+    section Digital Interaction
+      YOLO detects bag: 5: AI
+      Seat marked RESERVED: 5: Dashboard
+      YOLO detects person: 5: AI
+      Seat marked OCCUPIED: 5: Dashboard
+      Student leaves but keeps bag: 4: Me
+      Seat stays RESERVED: 5: Dashboard
+```
+
+---
+
+## 3. Technology Component Stack
+The architecture is divided into specialized layers, each utilizing industry-standard technologies.
+
+```mermaid
+graph TD
+    subgraph "Hardware & Capture"
+        IPC[IP Camera / WebCam]
+        RTSP[RTSP / HTTP Stream]
+    end
+
+    subgraph "Edge Intelligence (Python 3.10+)"
+        YOLO_M[YOLOv8 Nano Model]
+        CV2[OpenCV Image Processing]
+        NP[NumPy Vector Math]
+        POLYGON[Spatial Geometry Logic]
+    end
+
+    subgraph "Infrastructure & API (Flask)"
+        F_SRV[Flask Web Server]
+        CORS[Flask-CORS]
+        JSON_INT[RESTful JSON Interface]
+    end
+
+    subgraph "Frontend Engine (React)"
+        R_DOM[React Virtual DOM]
+        CSS_MOD[Modular CSS/Glassmorphism]
+        POLL[Axios/Fetch Polling]
+    end
+
+    IPC --> RTSP
+    RTSP --> CV2
+    CV2 --> YOLO_M
+    YOLO_M --> POLYGON
+    POLYGON --> JSON_INT
+    JSON_INT --> F_SRV
+    F_SRV --> R_DOM
+```
+
+---
+
+## 4. Architectural Deep-Dive
+
+### 4.1 The Spatial Awareness Algorithm (Masked-IoU)
+To achieve high precision in varying lighting and camera angles, the system avoids simple box-to-box collision. instead, it uses **Pixel-level Masking**.
+
+1.  **Static Mask Generation**: On startup, the system generates a bitmask $M_s$ for each seat polygon.
+2.  **Dynamic Detection Mask**: For every frame, a temporary mask $M_d$ is generated for all detections (Person/Bag).
+3.  **Logical Intersection**: $M_{inter} = M_s \wedge M_d$.
+4.  **Density Calculation**:
+    $$\rho = \frac{\sum M_{inter}}{\sum M_s}$$
+    *If $\rho > 0.10$, a collision is registered.*
+
+### 4.2 State Machine & Persistence
+The system maintains a volatile state for high-speed updates and can be extended for persistent logging.
+
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> Init
+    Init --> Scanning
+    Scanning --> DetectionFound: YOLO Inference
+    DetectionFound --> OverlapCheck: Spatial Logic
+    OverlapCheck --> UpdateState: Threshold Met
+    UpdateState --> API_Push: Throttling (1/10 frames)
+    API_Push --> Scanning
+```
+
+---
+
+## 5. Detailed Network API Documentation
+
+### 5.1 `POST /update` (Data Ingestion)
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `floor_id` | Integer | Unique identifier for library floor. |
+| `available` | Integer | Total count of EMPTY seats. |
+| `occupied` | Integer | Total count of OCCUPIED seats. |
+| `reserved` | Integer | Total count of RESERVED seats. |
+| `seats` | Object | Dictionary mapping SeatID to Status String. |
+
+### 5.2 `GET /status/<id>` (Data Consumption)
+| Response Property | Description |
+| :--- | :--- |
+| `seats` | Map of all seats and current statuses. |
+| `last_updated` | ISO Timestamp of the last received inference payload. |
+
+---
+
+## 6. Security, Privacy & Compliance
+*   **Privacy by Design**: The system does **not** store video or images. Only raw coordinates and classification labels leave the inference engine.
+*   **Anonymization**: YOLO detections are converted to metadata. No facial recognition or biometric data is processed.
+*   **API Security**: The backend can be configured with API keys to ensure only authorized edge nodes can push updates.
+
+---
+
+## 7. Scalability & Deployment Topology
+
+### 7.1 Distributed Edge Architecture
+For large universities, multiple edge nodes (Raspberry Pi/Jetson) process local camera feeds and send metadata to a central cloud aggregator.
+
+```mermaid
+graph LR
+    subgraph "Floor 1"
+        E1[Edge Node 1]
+    end
+    subgraph "Floor 2"
+        E2[Edge Node 2]
+    end
+    subgraph "Cloud / On-Prem"
+        SRV[Central Flask Aggregator]
+        DB[(PostgreSQL / TimeScale DB)]
+    end
+    
+    E1 --> |Metadata| SRV
+    E2 --> |Metadata| SRV
+    SRV --> DB
+```
+
+---
+
+## 8. Resilience Strategies
+1.  **Frame Dropping**: If the CPU is pegged, the inference engine skips frames to maintain real-time telemetry.
+2.  **Heartbeat Monitoring**: The dashboard can detect if an edge node has stopped sending data (stale timestamp) and alert maintenance.
+3.  **Adaptive Thresholding**: (Proposed) Adjusting the 10% overlap threshold based on camera focal length for different seat sizes.
+
+---
+
+## 9. Conclusion
+This system represents a robust, efficient, and privacy-conscious approach to smart city infrastructure. By modularizing the detection, processing, and visualization layers, the Smart Library Seat Detection project is ready for both small-scale testing and enterprise-level deployment.

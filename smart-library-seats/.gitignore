@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.pyc
+venv/
+env/
+ENV/
+
+# YOLO / Torch cache
+runs/
+.ultralytics/
+
+# Output images
+tools/output_*.jpg
+
+# OS
+.DS_Store
+Thumbs.db
+
+# VS Code
+.vscode/
+
+# Models (YOLO auto-download)
+*.pt
+*.pth
+*.ckpt
+
+# Node
+node_modules/
+
+# Environment
+.env
